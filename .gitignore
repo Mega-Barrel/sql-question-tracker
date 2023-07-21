@@ -1,0 +1,5 @@
+# environment
+/etl-env
+
+# credentials
+.env
