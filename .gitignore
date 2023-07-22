@@ -3,3 +3,6 @@
 
 # credentials
 .env
+
+# Code files
+src/notion/page.py
