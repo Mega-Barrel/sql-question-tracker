@@ -23,9 +23,20 @@ class NSEtl():
     
     def extract(self):
         # Get database data
+
         url = f"https://api.notion.com/v1/databases/{self._DATABASE_ID}/query"
 
-        payload = {"page_size": self.PAGE_SIZE}
+        # Specify page_size and database filtering
+        payload = {
+            "page_size": self.PAGE_SIZE,
+            "filter": { 
+                "timestamp": "created_time",
+                "created_time": {
+                    "after": "2023-07-21"
+                }
+            }
+        }
+
         resp = requests.post(url, json=payload, headers=self.headers)
 
         if resp.status_code == 200:
@@ -48,3 +59,6 @@ class NSEtl():
 
                 print(ndict)
                 print()
+
+test = NSEtl()
+test.extract()
