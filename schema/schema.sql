@@ -1,6 +1,9 @@
 
 -- Schema for Raw Table
-
--- Schema for Daily questions solved
-
--- Schema for Question solved Company wise
+CREATE TABLE "raw_data" (
+	"question_title"	    TEXT,
+	"question_difficulty"	TEXT,
+	"created_at"	        TIMESTAMP,
+	"platform"	            TEXT,
+	"company"	            TEXT []
+);
