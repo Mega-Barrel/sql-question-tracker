@@ -2,5 +2,5 @@
 
 from notion_elt.notion.notion_api import NSEtl
 
-test = NSEtl()
-test.extract()
+notion_ob = NSEtl()
+notion_ob.elt_process()
