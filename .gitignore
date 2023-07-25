@@ -6,3 +6,6 @@
 
 # Code files
 notion_elt/notion/page.py
+
+# cache files
+*__pycache__
