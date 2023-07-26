@@ -5,7 +5,7 @@
 .env
 
 # Code files
-notion_elt/notion/page.py
+src/notion/page.py
 
 # cache files
 *__pycache__
