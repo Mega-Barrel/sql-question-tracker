@@ -27,7 +27,6 @@ class NSEtl():
 
         # Creating NotionDB object
         self.db = NotionDB()
-        self.date_filter = self.db.get_last_record()
 
         # API header
         self.headers = {
@@ -41,14 +40,13 @@ class NSEtl():
         Method to Extract Notion Database data.
         """
         url = f"https://api.notion.com/v1/databases/{self._database_id}/query"
-        # date_part = str(self.date_filter).split(' ', maxsplit=1)[0]
         # Specify page_size and database filtering
         payload = {
             "page_size": self.page_size,
             "filter": { 
                 "timestamp": "created_time",
                 "created_time": {
-                    "after": '2023-07-19'
+                    "after": self.db.get_max_date_record()
                 }
             }
         }
@@ -77,7 +75,6 @@ class NSEtl():
                 }
 
                 raw_data.append(ndict)
-
         # Return raw_data list
         return raw_data
 
@@ -93,11 +90,19 @@ class NSEtl():
             index=False
         )
 
-    def transform(self, data: pd.DataFrame):
+    def transform(self):
         """
         Method to apply transformations to data,
         and save to new table
         """
+        # Update date with latest record
+        print(f'Pre Update: {self.db.get_max_date_record()}')
+        self.db.calculate_company_questions()
+        self.db.calculate_difficulty_level_questions()
+
+        # Update table with latest date
+        self.db.update_max_date_record()
+        print(f'Post Update: {self.db.get_max_date_record()}')
 
     def elt_process(self):
         """
@@ -108,4 +113,4 @@ class NSEtl():
         # Load
         self.load(data=data_frame)
         # Transform
-        
+        self.transform()
