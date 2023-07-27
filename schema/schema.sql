@@ -15,7 +15,7 @@ CREATE TABLE "max_date" (
 
 -- Schema for question solved by companies
 CREATE TABLE "companies_solved" (
-    "platform" TEXT,
+    "company" TEXT,
 	"question_solved" INTEGER
 );
 
