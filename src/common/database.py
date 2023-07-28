@@ -112,6 +112,40 @@ class NotionDB:
         """
         Method to calculate, daily solved questions
         """
+        # Get last update date
+        date = self.get_max_date_record()
+
+        query = text(
+            f"""
+                WITH raw_daily_solved AS (
+                    SELECT
+                        DATE(created_at) AS ques_date,
+                        COUNT(DATE(created_at)) AS ques_solved
+                    FROM
+                        raw_data
+                    WHERE
+                        DATE(created_at) > '{date}'
+                    GROUP BY
+                        1
+                    ORDER BY
+                        1
+                )
+
+                INSERT INTO daily_solved (
+                    created_at,
+                    question_solved
+                )
+                SELECT
+                    ques_date,
+                    ques_solved
+                FROM
+                    raw_daily_solved
+                ;
+            """
+        )
+        # Execute above query
+        self._connection.execute(query)
+        self._connection.commit()
 
     def calculate_difficulty_level_questions(self):
         """
