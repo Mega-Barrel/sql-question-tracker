@@ -35,10 +35,37 @@ class NSEtl():
             "Notion-Version": "2022-06-28"
         }
 
+    def process_data(self, json_data, data_list):
+        """
+        Method to pre-process JSON data
+        
+        :param json_data: RAW JSON data
+        :param data_list: Processed dict data
+        """
+        for attributes in json_data:
+            question = attributes['properties']['Questions']['title'][0]['text']['content']
+            difficulty = attributes['properties']['Tags']['select']['name']
+            created_time = datetime.strptime(attributes['created_time'], self.date_format)
+            platform = attributes['properties']['Platform']['select']['name']
+            company = [
+                item["name"] for item in attributes['properties']['Company']["multi_select"]
+            ]
+
+            ndict = {
+                'question_title': question,
+                'difficulty': difficulty,
+                'created_at': created_time,
+                'platform': platform,
+                'company': company
+            }
+
+            data_list.append(ndict)
+
     def extract(self):
         """
         Method to Extract Notion Database data.
         """
+        list_data = []
         url = f"https://api.notion.com/v1/databases/{self._database_id}/query"
         # Specify page_size and database filtering
         payload = {
@@ -51,32 +78,26 @@ class NSEtl():
             }
         }
 
+        # Request to Notion Endpoint
         resp = requests.post(url, json=payload, headers=self.headers, timeout=5000)
-
         if resp.status_code == 200:
-            data = resp.json()['results']
-            raw_data = []
+            data = resp.json()
+            results = data['results']
 
-            for attributes in data:
-                question = attributes['properties']['Questions']['title'][0]['text']['content']
-                difficulty = attributes['properties']['Tags']['select']['name']
-                created_time = datetime.strptime(attributes['created_time'], self.date_format)
-                platform = attributes['properties']['Platform']['select']['name']
-                company = [
-                    item["name"] for item in attributes['properties']['Company']["multi_select"]
-                ]
+            while data['has_more']:
+                # Update has_more to next_cursor, if has_more is True
+                payload['start_cursor'] = data['next_cursor']
+                resp = requests.post(url, json=payload, headers=self.headers, timeout=5000)
 
-                ndict = {
-                    'question_title': question,
-                    'difficulty': difficulty,
-                    'created_at': created_time,
-                    'platform': platform,
-                    'company': company
-                }
+                # Check if status_code == 200
+                if resp.status_code == 200:
+                    data = resp.json()
+                    # Add pagination data to clean_data
+                    results.extend(data['results'])
 
-                raw_data.append(ndict)
-        # Return raw_data list
-        return raw_data
+            self.process_data(results, list_data)
+            # return clean_data list
+            return list_data
 
     def load(self, data: pd.DataFrame):
         """
@@ -99,7 +120,7 @@ class NSEtl():
         print(f'Pre Update: {self.db.get_max_date_record()}')
         self.db.calculate_company_questions()
         self.db.calculate_difficulty_level_questions()
-
+        self.db.calculate_daily_questions_solved()
         # Update table with latest date
         self.db.update_max_date_record()
         print(f'Post Update: {self.db.get_max_date_record()}')
@@ -112,5 +133,5 @@ class NSEtl():
         data_frame = self.extract()
         # Load
         self.load(data=data_frame)
-        # Transform
+        # # Transform
         self.transform()
