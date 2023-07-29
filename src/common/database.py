@@ -1,5 +1,7 @@
 """DB connection"""
 
+import os
+from dotenv import load_dotenv
 from sqlalchemy import text
 from sqlalchemy import create_engine
 
@@ -12,8 +14,14 @@ class NotionDB:
         """
         Initializes engine object
         """
+        load_dotenv()
+        user = os.environ.get('USERNAME')
+        password = os.environ.get('PASSWORD')
+        host = os.environ.get('HOST')
+        port = os.environ.get('PORT')
+        db = os.environ.get('DB')
         # self._engine = sqlite3.connect('db/notion-data.db')
-        self.engine = create_engine('postgresql://postgres:joshi24@localhost:5432/notion-etl')
+        self.engine = create_engine(f'postgresql://{user}:{password}@{host}:{port}/{db}')
         self._connection = self.engine.connect()
 
     def get_raw_data_max_date(self):
