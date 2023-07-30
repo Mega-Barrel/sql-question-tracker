@@ -1,7 +1,10 @@
 """DB connection"""
 
 import os
+import pandas as pd
 from dotenv import load_dotenv
+
+import sqlite3
 from sqlalchemy import text
 from sqlalchemy import create_engine
 
@@ -20,9 +23,14 @@ class NotionDB:
         host = os.environ.get('HOST')
         port = os.environ.get('PORT')
         db = os.environ.get('DB')
-        # self._engine = sqlite3.connect('db/notion-data.db')
+
+        # PostgreSQL Connection
         self.engine = create_engine(f'postgresql://{user}:{password}@{host}:{port}/{db}')
         self._connection = self.engine.connect()
+
+        # SQLite Connection
+        self.sqlite_engine = sqlite3.connect(os.environ.get('FILEPATH'))
+        self.table_names = ['raw_data', 'companies_solved', 'daily_solved', 'ques_difficulty']
 
     def get_raw_data_max_date(self):
         """
@@ -198,3 +206,42 @@ class NotionDB:
         # Execute above query
         self._connection.execute(query)
         self._connection.commit()
+
+    def replicate_data_to_sqlite(self):
+        """
+        Method to replicate data from PostgreSQL Database to
+        SQLite Database
+        """
+        try:
+            for table in self.table_names:
+                if table == 'raw_data':
+                    # Read data from table
+                    query = text(f'SELECT * FROM {table};')
+                    data_frame = pd.read_sql(query, con=self._connection)
+                    data_frame['created_at'] = data_frame['created_at'].dt.date
+                    new_data_frame = data_frame[
+                        [
+                            'question_title','difficulty',
+                            'created_at','platform' 
+                        ]
+                    ]
+                    # Connect to SQLite, and save the dataframe
+                    new_data_frame.to_sql(
+                        table,
+                        con=self.sqlite_engine,
+                        if_exists='replace',
+                        index=False
+                    )
+                else:
+                    # Read data from table
+                    query = text(f'SELECT * FROM {table};')
+                    data_frame = pd.read_sql(query, con=self._connection)
+                    # Connect to SQLite, and save the dataframe
+                    data_frame.to_sql(
+                        table,
+                        con=self.sqlite_engine,
+                        if_exists='replace',
+                        index=False
+                    )
+        except Exception as error: # pylint: disable=W0718
+            print(f'Error: {error}')
