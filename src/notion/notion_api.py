@@ -135,3 +135,5 @@ class NSEtl():
         self.load(data=data_frame)
         # # Transform
         self.transform()
+        # Replicate data to SQLite
+        self.db.replicate_data_to_sqlite()
