@@ -72,8 +72,7 @@ class NotionDB:
             """
         )
         # Execute above query
-        self._connection.execute(query)
-        self._connection.commit()
+        self._connection.execute(query.execution_options(autocommit=True))
 
     def calculate_company_questions(self):
         """
@@ -121,8 +120,7 @@ class NotionDB:
             """
         )
         # Execute above query
-        self._connection.execute(query)
-        self._connection.commit()
+        self._connection.execute(query.execution_options(autocommit=True))
 
     def calculate_daily_questions_solved(self):
         """
@@ -160,8 +158,7 @@ class NotionDB:
             """
         )
         # Execute above query
-        self._connection.execute(query)
-        self._connection.commit()
+        self._connection.execute(query.execution_options(autocommit=True))
 
     def calculate_difficulty_level_questions(self):
         """
@@ -204,8 +201,7 @@ class NotionDB:
             """
         )
         # Execute above query
-        self._connection.execute(query)
-        self._connection.commit()
+        self._connection.execute(query.execution_options(autocommit=True))
 
     def replicate_data_to_sqlite(self):
         """
