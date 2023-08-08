@@ -133,7 +133,7 @@ class NSEtl():
         data_frame = self.extract()
         # Load
         self.load(data=data_frame)
-        # # Transform
+        # Transform
         self.transform()
-        # Replicate data to SQLite
+        # # Replicate data to SQLite
         self.db.replicate_data_to_sqlite()
