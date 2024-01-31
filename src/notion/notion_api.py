@@ -4,12 +4,9 @@ import os
 from datetime import datetime
 
 import requests
-import pandas as pd
 from dotenv import load_dotenv
 
-from src.common.database import NotionDB
-
-class NSEtl():
+class NotionWrapper():
     """
     Notion ELT Class
     """
@@ -26,7 +23,7 @@ class NSEtl():
         self.page_size = 100
 
         # Creating NotionDB object
-        self.db = NotionDB()
+        self.db = ''
 
         # API header
         self.headers = {
@@ -42,21 +39,32 @@ class NSEtl():
         :param json_data: RAW JSON data
         :param data_list: Processed dict data
         """
+        # print(json_data)
         for attributes in json_data:
+            page_id = attributes['id']
             question = attributes['properties']['Questions']['title'][0]['text']['content']
-            difficulty = attributes['properties']['Tags']['select']['name']
+            difficulty = attributes['properties']['Difficulty']['select']['name']
             created_time = datetime.strptime(attributes['created_time'], self.date_format)
+            status = attributes['properties']['Status']['status']['name']
             platform = attributes['properties']['Platform']['select']['name']
             company = [
                 item["name"] for item in attributes['properties']['Company']["multi_select"]
             ]
+            question_type = attributes['properties']['question_type']['select']['name']
+            question_link = attributes['properties']['question_link']['url']
+            page_url = attributes['url']
 
             ndict = {
+                'page_id': page_id,
                 'question_title': question,
                 'difficulty': difficulty,
                 'created_at': created_time,
                 'platform': platform,
-                'company': company
+                'company': company,
+                'question_type': question_type,
+                'question_link': question_link,
+                'question_status': status,
+                'page_url': page_url
             }
 
             data_list.append(ndict)
@@ -73,7 +81,7 @@ class NSEtl():
             "filter": { 
                 "timestamp": "created_time",
                 "created_time": {
-                    "after": self.db.get_max_date_record()
+                    "after": "2023-01-01"
                 }
             }
         }
@@ -98,42 +106,3 @@ class NSEtl():
             self.process_data(results, list_data)
             # return clean_data list
             return list_data
-
-    def load(self, data: pd.DataFrame):
-        """
-        Method to save DataFrame to Raw Table
-        """
-        data_frame = pd.DataFrame(data)
-        data_frame.to_sql(
-            'raw_data', 
-            self.db.engine,
-            if_exists='append',
-            index=False
-        )
-
-    def transform(self):
-        """
-        Method to apply transformations to data,
-        and save to new table
-        """
-        # Update date with latest record
-        print(f'Pre Update: {self.db.get_max_date_record()}')
-        self.db.calculate_company_questions()
-        self.db.calculate_difficulty_level_questions()
-        self.db.calculate_daily_questions_solved()
-        # Update table with latest date
-        self.db.update_max_date_record()
-        print(f'Post Update: {self.db.get_max_date_record()}')
-
-    def elt_process(self):
-        """
-        Main Method to call Extract, Load, and Transform functions
-        """
-        # Extract
-        data_frame = self.extract()
-        # Load
-        self.load(data=data_frame)
-        # Transform
-        self.transform()
-        # # Replicate data to SQLite
-        self.db.replicate_data_to_sqlite()
