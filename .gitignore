@@ -1,11 +1,11 @@
 # environment
-/etl-env
+/env_notion_pipeline
 
 # credentials
 .env
 
-# Code files
-src/notion/page.py
-
 # cache files
 *__pycache__
+
+# BQ Credential file
+bq_service_account.json
