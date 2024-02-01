@@ -25,12 +25,12 @@ class BigQueryOperations:
         # load .env file
         load_dotenv()
         # Load environment variables
-        self._project_id = os.environ.get('project_id')
+        self._project_id = os.environ.get("project_id")
         self._dataset_name = dataset_name
         self._table_name = table_name
-        self._table_id = f'{self._project_id}.{self._dataset_name}.{self._table_name}'
+        self._table_id = f"{self._project_id}.{self._dataset_name}.{self._table_name}"
         self.credentials = service_account.Credentials.from_service_account_file(
-            'bq_service_account.json'
+            "bq_service_account.json"
         )
         # Creating bigquery client
         self._client = bigquery.Client(
@@ -40,8 +40,12 @@ class BigQueryOperations:
         # Create empty list
         self._schema = []
 
-        # Perform dataset_exists check
-        self.dataset_exists()
+        # Perform checks to make sure dataset, table exist.
+        dataset_exist = self.dataset_exists()
+        if dataset_exist:
+            table_exist = self.table_exists()
+            if table_exist:
+                self.create_table()
 
     def dataset_exists(self) -> None:
         """Checks if a dataset exists in the project.
@@ -54,10 +58,11 @@ class BigQueryOperations:
         """
         # Set dataset_id to the ID of the dataset to determine existence.
         # dataset_id = "your-project.your_dataset"
-        dataset_id = f'{self._project_id}.{self._dataset_name}'
+        dataset_id = f"{self._project_id}.{self._dataset_name}"
         try:
             self._client.get_dataset(dataset_id)  # Make an API request.
             print(f"Dataset {self._dataset_name} already exists.")
+            return False
         except NotFound:
             print(f"Dataset {self._dataset_name} does not exist.")
             print(f"Creating new dataset with name: {self._dataset_name}.")
@@ -70,6 +75,7 @@ class BigQueryOperations:
             # exists within the project.
             dataset = self._client.create_dataset(dataset, timeout=30)  # Make an API request.
             print(f"Created dataset {dataset_id}.")
+            return True
 
     def table_exists(self):
         """Checks if a table exists in the dataset.
@@ -82,11 +88,11 @@ class BigQueryOperations:
         """
         try:
             self._client.get_table(self._table_id)    # Make an API request.
-            print(f'Table {self._table_id} already exists.')
+            print(f"Table {self._table_id} already exists.")
             return False
         except NotFound:
-            print(f'Table `{self._table_name}` does not exists.')
-            self.create_table()
+            print(f"Table `{self._table_name}` does not exists.")
+            return True
 
     def create_table(self) -> None:
         """Creates a new table in the specified dataset, with custom schema.
@@ -99,37 +105,38 @@ class BigQueryOperations:
             bigquery.SchemaField(
                 "page_id", 
                 field_type="STRING",
-                description='Notion Page ID'
+                description="Notion Page ID"
             ),
             bigquery.SchemaField(
                 "question_title", 
                 "STRING", 
-                description='Question Title'
+                description="Question Title"
             ),
             bigquery.SchemaField(
                 "difficulty", 
-                "STRING", description='Question Difficulty (Eg: Easy, Medium, Hard)'),
+                "STRING", description="Question Difficulty (Eg: Easy, Medium, Hard)"),
             bigquery.SchemaField(
                 "created_at", 
-                "TIMESTAMP", description='Question CreatedAt'),
+                "TIMESTAMP", description="Question CreatedAt"),
             bigquery.SchemaField(
                 "platform", 
-                "STRING", description='Question Platform (Eg: leetcode, Interview Bit, etc.)'),
+                "STRING", description="Question Platform (Eg: leetcode, Interview Bit, etc.)"),
             bigquery.SchemaField(
                 "company", 
-                "STRING", description='Company (Eg: Amazon, Meta, etc.)'),
+                "STRING", description="Company (Eg: Amazon, Meta, etc.)"
+            ),
             bigquery.SchemaField(
                 "question_type", 
-                "STRING", description='Question Type (Eg: SQL, Pandas, DSA)'),
+                "STRING", description="Question Type (Eg: SQL, Pandas, DSA)"),
             bigquery.SchemaField(
                 "question_link", 
-                "STRING", description='Question URL'),
+                "STRING", description="Question URL"),
             bigquery.SchemaField(
                 "question_status", 
-                "DATE", description='Question Status (Solved, UnSolved)'),
+                "STRING", description="Question Status (Solved, UnSolved)"),
             bigquery.SchemaField(
                 "page_url", 
-                "STRING", description='Notion Page URL')
+                "STRING", description="Notion Page URL")
         ]
 
         table = bigquery.Table(self._table_id, schema=schema)
@@ -150,11 +157,6 @@ class BigQueryOperations:
         Args:
             data: List[dict]
         """
-        rows_to_insert = [
-            {"full_name": "Phred Phlyntstone", "age": 32},
-            {"full_name": "Wylma Phlyntstone", "age": 29},
-        ]
-
         # Make an API request.
         errors = self._client.insert_rows_json(self._table_id, rows_to_insert)
         if not errors:
@@ -162,5 +164,22 @@ class BigQueryOperations:
         else:
             print(f"Encountered errors while inserting rows: {errors}")
 
-if __name__ == '__main__':
-    pass
+# if __name__ == "__main__":
+#     bq = BigQueryOperations(dataset_name="coding_questions", table_name="test_table")
+#     # Raw data
+#     json_data = [
+#         {
+#             "page_id": "day-adf2-1221wqd-qko",
+#             "question_title": "Find Employer Manager",
+#             "difficulty": "Hard",
+#             "created_at": "2024-01-01T04:38:30.662011",
+#             "platform": "leetcode",
+#             "company": "Meta/Facebook | Amazon",
+#             "question_type": "SQL",
+#             "question_link": "https://leetcode.com/discuss",
+#             "question_status": "in-progress",
+#             "page_url": "https://leetcode.com/discuss"
+#         }
+#     ]
+
+#     bq.insert_data(rows_to_insert=json_data)
