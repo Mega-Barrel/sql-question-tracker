@@ -2,6 +2,7 @@
 
 # Internal packages
 import os
+from time import sleep
 
 # Installed packages
 from dotenv import load_dotenv
@@ -45,7 +46,7 @@ class BigQueryOperations:
         if dataset_exist:
             table_exist = self.table_exists()
             if table_exist:
-                self.create_table()
+                self.create_partitioned_table()
 
     def dataset_exists(self) -> None:
         """Checks if a dataset exists in the project.
@@ -75,6 +76,8 @@ class BigQueryOperations:
             # exists within the project.
             dataset = self._client.create_dataset(dataset, timeout=30)  # Make an API request.
             print(f"Created dataset {dataset_id}.")
+            print('Sleeping for 1 seconds.')
+            sleep(1)
             return True
 
     def table_exists(self):
@@ -94,8 +97,8 @@ class BigQueryOperations:
             print(f"Table `{self._table_name}` does not exists.")
             return True
 
-    def create_table(self) -> None:
-        """Creates a new table in the specified dataset, with custom schema.
+    def create_partitioned_table(self) -> None:
+        """Creates a new table in the specified dataset, with custom schema and Column Partition.
         
         Output:
             Creates BQ table with custom schema
@@ -114,29 +117,40 @@ class BigQueryOperations:
             ),
             bigquery.SchemaField(
                 "difficulty", 
-                "STRING", description="Question Difficulty (Eg: Easy, Medium, Hard)"),
+                "STRING", 
+                description="Question Difficulty (Eg: Easy, Medium, Hard)"
+            ),
             bigquery.SchemaField(
                 "created_at", 
-                "TIMESTAMP", description="Question CreatedAt"),
+                "TIMESTAMP", 
+                description="Question CreatedAt"
+            ),
             bigquery.SchemaField(
                 "platform", 
-                "STRING", description="Question Platform (Eg: leetcode, Interview Bit, etc.)"),
+                "STRING", 
+                description="Question Platform (Eg: leetcode, Interview Bit, etc.)"
+            ),
             bigquery.SchemaField(
                 "company", 
-                "STRING", description="Company (Eg: Amazon, Meta, etc.)"
+                "STRING", 
+                description="Company (Eg: Amazon, Meta, etc.)"
             ),
             bigquery.SchemaField(
                 "question_type", 
-                "STRING", description="Question Type (Eg: SQL, Pandas, DSA)"),
+                "STRING", 
+                description="Question Type (Eg: SQL, Pandas, DSA)"
+            ),
             bigquery.SchemaField(
                 "question_link", 
                 "STRING", description="Question URL"),
             bigquery.SchemaField(
                 "question_status", 
-                "STRING", description="Question Status (Solved, UnSolved)"),
+                "STRING", description="Question Status (Solved, UnSolved)"
+            ),
             bigquery.SchemaField(
                 "page_url", 
-                "STRING", description="Notion Page URL")
+                "STRING", description="Notion Page URL"
+            )
         ]
 
         table = bigquery.Table(self._table_id, schema=schema)
@@ -151,6 +165,8 @@ class BigQueryOperations:
             f"Created table {self._table_id}, "
             f"partitioned on column {table.time_partitioning.field}."
         )
+        print('Sleeping for 1 seconds.')
+        sleep(1)
 
     def insert_data(self, rows_to_insert: list[dict]) -> None:
         """
@@ -164,22 +180,29 @@ class BigQueryOperations:
         else:
             print(f"Encountered errors while inserting rows: {errors}")
 
-# if __name__ == "__main__":
-#     bq = BigQueryOperations(dataset_name="coding_questions", table_name="test_table")
-#     # Raw data
-#     json_data = [
-#         {
-#             "page_id": "day-adf2-1221wqd-qko",
-#             "question_title": "Find Employer Manager",
-#             "difficulty": "Hard",
-#             "created_at": "2024-01-01T04:38:30.662011",
-#             "platform": "leetcode",
-#             "company": "Meta/Facebook | Amazon",
-#             "question_type": "SQL",
-#             "question_link": "https://leetcode.com/discuss",
-#             "question_status": "in-progress",
-#             "page_url": "https://leetcode.com/discuss"
-#         }
-#     ]
+    def get_max_date(self) -> str:
+        """Gets max date from stg_raw_questions table.
 
-#     bq.insert_data(rows_to_insert=json_data)
+        Returns:
+            str(date)
+        """
+        return_dt = ''
+        query = (
+            f"""
+            SELECT
+                DATE(last_modified_time) AS last_modified_time
+            FROM 
+                `{self._dataset_name}.INFORMATION_SCHEMA.PARTITIONS`
+            WHERE
+                table_name = '{self._table_name}'
+            """
+        )
+        rows = self._client.query_and_wait(query)  # Make an API request.
+        for row in rows:
+            # Row values can be accessed by field name or index.
+            return_dt = row[0]
+        return return_dt
+
+# if __name__ == "__main__":
+#     bq = BigQueryOperations(dataset_name="coding_questions", table_name="stg_raw_questions")
+#     bq.get_max_date()
