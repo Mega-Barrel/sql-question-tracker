@@ -1,10 +1,16 @@
 """NOTION DataBase API Endpoint"""
 
+# System Packages
 import os
+from time import sleep
 from datetime import datetime
 
+# Installed Packages
 import requests
 from dotenv import load_dotenv
+
+# Folder imports
+from src.bigquery.database import BigQueryOperations
 
 class NotionWrapper():
     """
@@ -22,8 +28,15 @@ class NotionWrapper():
         self.date_format = '%Y-%m-%dT%H:%M:%S.%fZ'
         self.page_size = 100
 
-        # Creating NotionDB object
-        self.db = ''
+        # Creating DB object
+        self.dataset_name = 'coding_questions'
+        self.table_name = 'stg_raw_questions_test'
+        self.db = BigQueryOperations(
+            dataset_name=self.dataset_name,
+            table_name=self.table_name
+        )
+        self.dt = self.db.get_max_date()
+        print(self.dt)
 
         # API header
         self.headers = {
@@ -32,7 +45,7 @@ class NotionWrapper():
             "Notion-Version": "2022-06-28"
         }
 
-    def process_data(self, json_data, data_list):
+    def process_data(self, json_data, data_list: list[dict]) -> list[dict]:
         """
         Method to pre-process JSON data
         
@@ -40,33 +53,27 @@ class NotionWrapper():
         :param data_list: Processed dict data
         """
         # print(json_data)
-        for attributes in json_data:
-            page_id = attributes['id']
-            question = attributes['properties']['Questions']['title'][0]['text']['content']
-            difficulty = attributes['properties']['Difficulty']['select']['name']
-            created_time = datetime.strptime(attributes['created_time'], self.date_format)
-            status = attributes['properties']['Status']['status']['name']
-            platform = attributes['properties']['Platform']['select']['name']
-            company = [
-                item["name"] for item in attributes['properties']['Company']["multi_select"]
-            ]
-            question_type = attributes['properties']['question_type']['select']['name']
-            question_link = attributes['properties']['question_link']['url']
-            page_url = attributes['url']
+        for result in json_data:
+            # Extract company information
+            if "properties" in result and "Company" in result["properties"]:
+                companies = result["properties"]["Company"]["multi_select"]
+                company_names = [company["name"] for company in companies]
+                company_str = ' | '.join(company_names)
 
             ndict = {
-                'page_id': page_id,
-                'question_title': question,
-                'difficulty': difficulty,
-                'created_at': created_time,
-                'platform': platform,
-                'company': company,
-                'question_type': question_type,
-                'question_link': question_link,
-                'question_status': status,
-                'page_url': page_url
+                'page_id': result.get('id', ''),
+                'question_title': result['properties']['Questions']['title'][0]['text']['content'],
+                'difficulty': result['properties']['Difficulty']['select']['name'],
+                'created_at': str(datetime.strptime(result['created_time'], self.date_format)),
+                'platform': result['properties']['Platform']['select']['name'],
+                'company': company_str,
+                'question_type': result['properties']['question_type']['select']['name'],
+                'question_link': result['properties']['question_link']['url'],
+                'question_status': result['properties']['Status']['status']['name'],
+                'page_url': result['url']
             }
 
+            # Append dict to list
             data_list.append(ndict)
 
     def extract(self):
@@ -81,7 +88,7 @@ class NotionWrapper():
             "filter": { 
                 "timestamp": "created_time",
                 "created_time": {
-                    "after": "2023-01-01"
+                    "after": f"{self.dt}"
                 }
             }
         }
@@ -106,3 +113,17 @@ class NotionWrapper():
             self.process_data(results, list_data)
             # return clean_data list
             return list_data
+
+    def load_data(self, raw_data: list[dict]):
+        """ Passes the list data to BigQueryOperations class, which handles all DB processes.
+
+        Args:
+            data: list[dict], List of dictionaries to insert
+        """
+        if raw_data:
+            print('Data available to insert.')
+            print('Sleeping for 1 second.')
+            sleep(1)
+            self.db.insert_data(rows_to_insert=raw_data)
+        else:
+            print('No data available to insert.')
