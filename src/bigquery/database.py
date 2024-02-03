@@ -76,8 +76,6 @@ class BigQueryOperations:
             # exists within the project.
             dataset = self._client.create_dataset(dataset, timeout=30)  # Make an API request.
             print(f"Created dataset {dataset_id}.")
-            print('Sleeping for 1 seconds.')
-            sleep(1)
             return True
 
     def table_exists(self):
@@ -165,8 +163,6 @@ class BigQueryOperations:
             f"Created table {self._table_id}, "
             f"partitioned on column {table.time_partitioning.field}."
         )
-        print('Sleeping for 1 seconds.')
-        sleep(1)
 
     def insert_data(self, rows_to_insert: list[dict]) -> None:
         """
@@ -174,6 +170,7 @@ class BigQueryOperations:
             data: List[dict]
         """
         # Make an API request.
+        sleep(30)
         errors = self._client.insert_rows_json(self._table_id, rows_to_insert)
         if not errors:
             print("New rows have been added.")
@@ -190,11 +187,9 @@ class BigQueryOperations:
         query = (
             f"""
             SELECT
-                DATE(last_modified_time) AS last_modified_time
+                DATE(MAX(created_at)) AS last_modified_date
             FROM 
-                `{self._dataset_name}.INFORMATION_SCHEMA.PARTITIONS`
-            WHERE
-                table_name = '{self._table_name}'
+                `{self._table_id}`
             """
         )
         rows = self._client.query_and_wait(query)  # Make an API request.
@@ -202,7 +197,3 @@ class BigQueryOperations:
             # Row values can be accessed by field name or index.
             return_dt = row[0]
         return return_dt
-
-# if __name__ == "__main__":
-#     bq = BigQueryOperations(dataset_name="coding_questions", table_name="stg_raw_questions")
-#     bq.get_max_date()
