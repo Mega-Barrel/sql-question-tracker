@@ -1,6 +1,9 @@
-"""Main file"""
+"""Extract and Load layer call"""
+from src.notion.notion_api import NotionWrapper
 
-from src.notion.notion_api import NSEtl
-
-notion_ob = NSEtl()
-notion_ob.elt_process()
+if __name__ == '__main__':
+    nw = NotionWrapper()
+    data = nw.extract()
+    nw.load_data(
+        raw_data=data
+    )

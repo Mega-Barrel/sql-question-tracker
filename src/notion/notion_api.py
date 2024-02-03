@@ -1,15 +1,17 @@
 """NOTION DataBase API Endpoint"""
 
+# System Packages
 import os
 from datetime import datetime
 
+# Installed Packages
 import requests
-import pandas as pd
 from dotenv import load_dotenv
 
-from src.common.database import NotionDB
+# Folder imports
+from src.bigquery.database import BigQueryOperations
 
-class NSEtl():
+class NotionWrapper():
     """
     Notion ELT Class
     """
@@ -25,8 +27,14 @@ class NSEtl():
         self.date_format = '%Y-%m-%dT%H:%M:%S.%fZ'
         self.page_size = 100
 
-        # Creating NotionDB object
-        self.db = NotionDB()
+        # Creating DB object
+        self.dataset_name = 'coding_question'
+        self.table_name = 'stg_raw_questions'
+        self.db = BigQueryOperations(
+            dataset_name=self.dataset_name,
+            table_name=self.table_name
+        )
+        self.dt = '1990-01-01' if self.db.get_max_date() is None else self.db.get_max_date()
 
         # API header
         self.headers = {
@@ -35,30 +43,35 @@ class NSEtl():
             "Notion-Version": "2022-06-28"
         }
 
-    def process_data(self, json_data, data_list):
+    def process_data(self, json_data, data_list: list[dict]) -> list[dict]:
         """
         Method to pre-process JSON data
         
         :param json_data: RAW JSON data
         :param data_list: Processed dict data
         """
-        for attributes in json_data:
-            question = attributes['properties']['Questions']['title'][0]['text']['content']
-            difficulty = attributes['properties']['Tags']['select']['name']
-            created_time = datetime.strptime(attributes['created_time'], self.date_format)
-            platform = attributes['properties']['Platform']['select']['name']
-            company = [
-                item["name"] for item in attributes['properties']['Company']["multi_select"]
-            ]
+        # print(json_data)
+        for result in json_data:
+            # Extract company information
+            if "properties" in result and "Company" in result["properties"]:
+                companies = result["properties"]["Company"]["multi_select"]
+                company_names = [company["name"] for company in companies]
+                company_str = ' | '.join(company_names)
 
             ndict = {
-                'question_title': question,
-                'difficulty': difficulty,
-                'created_at': created_time,
-                'platform': platform,
-                'company': company
+                'page_id': result.get('id', ''),
+                'question_title': result['properties']['Questions']['title'][0]['text']['content'],
+                'difficulty': result['properties']['Difficulty']['select']['name'],
+                'created_at': str(datetime.strptime(result['created_time'], self.date_format)),
+                'platform': result['properties']['Platform']['select']['name'],
+                'company': company_str,
+                'question_type': result['properties']['question_type']['select']['name'],
+                'question_link': result['properties']['question_link']['url'],
+                'question_status': result['properties']['Status']['status']['name'],
+                'page_url': result['url']
             }
 
+            # Append dict to list
             data_list.append(ndict)
 
     def extract(self):
@@ -73,7 +86,7 @@ class NSEtl():
             "filter": { 
                 "timestamp": "created_time",
                 "created_time": {
-                    "after": self.db.get_max_date_record()
+                    "after": f"{self.dt}"
                 }
             }
         }
@@ -99,41 +112,14 @@ class NSEtl():
             # return clean_data list
             return list_data
 
-    def load(self, data: pd.DataFrame):
-        """
-        Method to save DataFrame to Raw Table
-        """
-        data_frame = pd.DataFrame(data)
-        data_frame.to_sql(
-            'raw_data', 
-            self.db.engine,
-            if_exists='append',
-            index=False
-        )
+    def load_data(self, raw_data: list[dict]):
+        """ Passes the list data to BigQueryOperations class, which handles all DB processes.
 
-    def transform(self):
+        Args:
+            data: list[dict], List of dictionaries to insert
         """
-        Method to apply transformations to data,
-        and save to new table
-        """
-        # Update date with latest record
-        print(f'Pre Update: {self.db.get_max_date_record()}')
-        self.db.calculate_company_questions()
-        self.db.calculate_difficulty_level_questions()
-        self.db.calculate_daily_questions_solved()
-        # Update table with latest date
-        self.db.update_max_date_record()
-        print(f'Post Update: {self.db.get_max_date_record()}')
-
-    def elt_process(self):
-        """
-        Main Method to call Extract, Load, and Transform functions
-        """
-        # Extract
-        data_frame = self.extract()
-        # Load
-        self.load(data=data_frame)
-        # Transform
-        self.transform()
-        # # Replicate data to SQLite
-        self.db.replicate_data_to_sqlite()
+        if raw_data:
+            print('Data available to insert.')
+            self.db.insert_data(rows_to_insert=raw_data)
+        else:
+            print('No data available to insert.')
