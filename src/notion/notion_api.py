@@ -2,7 +2,6 @@
 
 # System Packages
 import os
-from time import sleep
 from datetime import datetime
 
 # Installed Packages
@@ -29,14 +28,13 @@ class NotionWrapper():
         self.page_size = 100
 
         # Creating DB object
-        self.dataset_name = 'coding_questions'
-        self.table_name = 'stg_raw_questions_test'
+        self.dataset_name = 'coding_question'
+        self.table_name = 'stg_raw_questions'
         self.db = BigQueryOperations(
             dataset_name=self.dataset_name,
             table_name=self.table_name
         )
-        self.dt = self.db.get_max_date()
-        print(self.dt)
+        self.dt = '1990-01-01' if self.db.get_max_date() is None else self.db.get_max_date()
 
         # API header
         self.headers = {
@@ -122,8 +120,6 @@ class NotionWrapper():
         """
         if raw_data:
             print('Data available to insert.')
-            print('Sleeping for 1 second.')
-            sleep(1)
             self.db.insert_data(rows_to_insert=raw_data)
         else:
             print('No data available to insert.')
