@@ -1,4 +1,4 @@
-"""Test call"""
+"""Extract and Load layer call"""
 from src.notion.notion_api import NotionWrapper
 
 if __name__ == '__main__':
